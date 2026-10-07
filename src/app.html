@@ -2,6 +2,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
 <style>
 /* Layout: yksi kapea maastomuistikirjan sarake; lomake ylhäällä, havainnot päivittäin alla. */
 :root{
@@ -18,6 +19,7 @@
   --bg:#111915; --surface:#19241f; --fg:#e4ece6; --muted:#9aaba1; --line:#2c3b33;
   --accent:#7fc0a6; --accent-fg:#0d1612; --mark:#e2b551; --danger:#ef8a78; color-scheme:dark}
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{background:var(--bg)}
 body{color:var(--fg);font:17px/1.5 var(--f-body);margin:0}
 .wrap{max-width:34rem;margin:0 auto;padding-inline:16px;padding-block:20px 48px;display:flex;flex-direction:column;gap:24px}
@@ -65,6 +67,16 @@ h2{font:600 1.15rem/1.2 var(--f-display);margin:0}
 .del{padding:2px 8px;font-size:.8rem;font-weight:400;color:var(--muted);background:none;border-color:transparent}
 .del.confirm{color:var(--danger);border-color:var(--danger)}
 .empty{color:var(--muted);border:1px dashed var(--line);border-radius:14px;padding:20px;text-align:center}
+.tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:4px}
+.tabs button{flex:1;border:0;background:none;color:var(--muted);padding:10px}
+.tabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-fg)}
+.view{display:flex;flex-direction:column;gap:24px}
+#map{height:min(68vh,36rem);border-radius:14px;border:1px solid var(--line);background:var(--surface);z-index:0}
+.leaflet-popup-content{font:15px/1.4 var(--f-body);margin:12px 14px}
+.leaflet-popup-content b{font-size:1.05em}
+.leaflet-popup-content i{color:#5a6b62}
+.leaflet-popup-content .pm{font:500 .8rem/1.4 var(--f-data);color:#5a6b62;display:block;margin-top:2px}
+.leaflet-container a.leaflet-popup-close-button{padding:6px 6px 0 0}
 .note{font-size:.85rem;color:var(--muted);margin:0}
 @media (prefers-reduced-motion:no-preference){.obs.new{animation:pop .5s ease-out}@keyframes pop{from{background:color-mix(in srgb,var(--mark) 25%,transparent)}to{background:transparent}}}
 </style>
@@ -75,6 +87,12 @@ h2{font:600 1.15rem/1.2 var(--f-display);margin:0}
     <div class="tally"><span><b id="t-species">0</b>lajia</span><span><b id="t-obs">0</b>havaintoa</span></div>
   </header>
 
+  <div class="tabs" role="tablist">
+    <button type="button" role="tab" id="tab-log" aria-controls="v-log" aria-selected="true">Kirjaa</button>
+    <button type="button" role="tab" id="tab-map" aria-controls="v-map" aria-selected="false">Kartta</button>
+  </div>
+
+  <div id="v-log" class="view" role="tabpanel" aria-labelledby="tab-log">
   <form id="f" autocomplete="off" novalidate>
     <div class="combo">
       <label for="species">Laji
@@ -106,6 +124,12 @@ h2{font:600 1.15rem/1.2 var(--f-display);margin:0}
   <section aria-labelledby="h-list">
     <h2 id="h-list">Havainnot</h2>
     <div id="list"></div>
+  </section>
+  </div>
+
+  <section id="v-map" class="view" role="tabpanel" aria-labelledby="tab-map" hidden>
+    <div id="map" aria-label="Havaintojen kartta"></div>
+    <p id="map-note" class="note"></p>
   </section>
   <p class="note">Havainnot tallentuvat vain tähän laitteeseen.</p>
 </div>
@@ -210,6 +234,7 @@ h2{font:600 1.15rem/1.2 var(--f-display);margin:0}
   const dayFmt = new Intl.DateTimeFormat("fi-FI", { weekday: "short", day: "numeric", month: "numeric", year: "numeric" });
   const timeFmt = new Intl.DateTimeFormat("fi-FI", { hour: "2-digit", minute: "2-digit" });
   function render(){
+    renderMap();
     $("t-obs").textContent = obs.length;
     $("t-species").textContent = new Set(obs.map(o => o.species.toLowerCase())).size;
     const list = $("list");
@@ -250,7 +275,75 @@ h2{font:600 1.15rem/1.2 var(--f-display);margin:0}
     }));
   }
 
+  // Kartta
+  let map = null, layer = null, meMarker = null, leafletLoading = null;
+  function loadLeaflet(){
+    if (window.L) return Promise.resolve();
+    return leafletLoading ||= new Promise((ok, fail) => {
+      const sc = document.createElement("script");
+      sc.src = "vendor/leaflet/leaflet.js";
+      sc.onload = ok; sc.onerror = () => { leafletLoading = null; fail(); };
+      document.head.append(sc);
+    });
+  }
+  const esc = t => String(t).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  function renderMap(){
+    if (!map) return;
+    layer.clearLayers();
+    const located = obs.filter(o => o.lat != null);
+    // Samassa paikassa olevat havainnot yhteen merkkiin
+    const spots = new Map();
+    for (const o of located){ const k = o.lat.toFixed(4) + "," + o.lon.toFixed(4); if (!spots.has(k)) spots.set(k, []); spots.get(k).push(o); }
+    const pts = [];
+    for (const items of spots.values()){
+      items.sort((a, b) => b.when.localeCompare(a.when));
+      const { lat, lon } = items[0]; pts.push([lat, lon]);
+      const total = items.reduce((s, o) => s + o.count, 0);
+      const m = L.circleMarker([lat, lon], { radius: Math.min(7 + Math.sqrt(items.length) * 3, 18), color: css("--surface"), weight: 2, fillColor: css("--accent"), fillOpacity: .9 });
+      const head = items[0].place ? `<span class="pm">${esc(items[0].place)}</span>` : "";
+      const rows = items.slice(0, 8).map(o => {
+        const la = sci.get(o.species.toLowerCase());
+        return `<div style="margin-top:8px"><b>${esc(o.species)}</b>${la ? ` <i>${esc(la)}</i>` : ""}<span class="pm">${o.count} yks. · ${dayFmt.format(new Date(o.when))} ${timeFmt.format(new Date(o.when))}</span>${o.notes ? esc(o.notes) : ""}</div>`;
+      }).join("");
+      const more = items.length > 8 ? `<span class="pm">+ ${items.length - 8} muuta</span>` : "";
+      m.bindPopup(head + rows + more, { maxWidth: 260 });
+      layer.addLayer(m);
+    }
+    const missing = obs.length - located.length;
+    $("map-note").textContent = !obs.length ? "Kartalla näkyvät havainnot, joille on tallennettu sijainti." :
+      missing ? `${missing} havainnolla ei ole sijaintia, joten ne eivät näy kartalla.` : "";
+    if (pts.length) map.fitBounds(pts, { padding: [32, 32], maxZoom: 14 });
+    else if (coords) map.setView([coords.lat, coords.lon], 12);
+    else map.setView([64.5, 26], 5);
+    if (coords){
+      if (!meMarker) meMarker = L.circleMarker([coords.lat, coords.lon], { radius: 6, color: css("--surface"), weight: 2, fillColor: css("--mark"), fillOpacity: 1 }).bindTooltip("Olet tässä").addTo(map);
+      else meMarker.setLatLng([coords.lat, coords.lon]);
+    }
+  }
+  async function openMap(){
+    if (!map){
+      $("map-note").textContent = "Ladataan karttaa…";
+      try { await loadLeaflet(); } catch(e){ $("map-note").textContent = "Karttaa ei saatu ladattua. Tarkista verkkoyhteys."; return; }
+      map = L.map("map", { zoomControl: true, attributionControl: true });
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }).addTo(map);
+      layer = L.layerGroup().addTo(map);
+    }
+    map.invalidateSize();
+    renderMap();
+  }
+  function show(view){
+    const isMap = view === "map";
+    $("v-log").hidden = isMap; $("v-map").hidden = !isMap;
+    $("tab-log").setAttribute("aria-selected", String(!isMap)); $("tab-map").setAttribute("aria-selected", String(isMap));
+    try { history.replaceState(null, "", isMap ? "#kartta" : "#"); } catch(e){}
+    if (isMap) openMap();
+  }
+  $("tab-log").onclick = () => show("log");
+  $("tab-map").onclick = () => show("map");
+
   resetWhen(); render(); locate();
+  if (location.hash === "#kartta") show("map");
   if ("serviceWorker" in navigator && location.protocol === "https:" && !/claude/.test(location.hostname)){
     navigator.serviceWorker.register("sw.js").catch(() => {});
   }
