@@ -7,17 +7,17 @@
 /* Layout: yksi kapea maastomuistikirjan sarake; lomake ylhäällä, havainnot päivittäin alla. */
 :root{
   --bg:#eef2ee; --surface:#ffffff; --fg:#17231d; --muted:#5a6b62; --line:#d3ddd6;
-  --accent:#2c5c4c; --accent-fg:#ffffff; --mark:#c9952a; --danger:#a63a2b;
+  --accent:#2c5c4c; --accent-fg:#ffffff; --mark:#c9952a; --danger:#a63a2b; --eb:#4f6fb3;
   --f-display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
   --f-body:"Atkinson Hyperlegible",ui-sans-serif,system-ui,sans-serif;
   --f-data:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#111915; --surface:#19241f; --fg:#e4ece6; --muted:#9aaba1; --line:#2c3b33;
-  --accent:#7fc0a6; --accent-fg:#0d1612; --mark:#e2b551; --danger:#ef8a78; color-scheme:dark}}
+  --accent:#7fc0a6; --accent-fg:#0d1612; --mark:#e2b551; --danger:#ef8a78; --eb:#93aee8; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#111915; --surface:#19241f; --fg:#e4ece6; --muted:#9aaba1; --line:#2c3b33;
-  --accent:#7fc0a6; --accent-fg:#0d1612; --mark:#e2b551; --danger:#ef8a78; color-scheme:dark}
+  --accent:#7fc0a6; --accent-fg:#0d1612; --mark:#e2b551; --danger:#ef8a78; --eb:#93aee8; color-scheme:dark}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{background:var(--bg)}
@@ -74,6 +74,7 @@ h2{font:600 1.15rem/1.2 var(--f-display);margin:0}
 #map{height:clamp(14rem,calc(100vh - 12rem),40rem);height:clamp(14rem,calc(100dvh - 12rem),40rem);border-radius:14px;border:1px solid var(--line);background:var(--surface);z-index:0}
 .leaflet-popup-content{font:15px/1.4 var(--f-body);margin:12px 14px}
 .leaflet-popup-content b{font-size:1.05em}
+.leaflet-popup-content a{color:#2c5c4c}
 .leaflet-popup-content i{color:#5a6b62}
 .leaflet-popup-content .pm{font:500 .8rem/1.4 var(--f-data);color:#5a6b62;display:block;margin-top:2px}
 .leaflet-container a.leaflet-popup-close-button{padding:6px 6px 0 0}
@@ -132,6 +133,25 @@ dialog#sp::backdrop{background:rgb(10 20 15/.55)}
 .bk-confirm p{margin:0}
 .bk-confirm div{display:flex;gap:8px;flex-wrap:wrap}
 .bk-confirm .go{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.eb{background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.eb summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 16px;font-weight:700}
+.eb summary::-webkit-details-marker{display:none}
+.eb summary small{font:500 .7rem/1 var(--f-data);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-left:6px}
+.eb summary:focus-visible{outline:3px solid var(--mark);outline-offset:2px;border-radius:14px}
+.eb-sum{font:400 .85rem/1.3 var(--f-body);color:var(--muted);text-align:right}
+.eb-sum::after{content:" ▾"}
+.eb[open] .eb-sum::after{content:" ▴"}
+.eb-body{display:flex;flex-direction:column;gap:12px;padding:0 16px 16px}
+.eb-row{display:flex;gap:12px;flex-wrap:wrap}
+.eb-row>label{flex:1 1 9rem;min-width:0}
+select{font:inherit;font-weight:400;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;width:100%}
+.eb-actions{display:flex;gap:8px;flex-wrap:wrap}
+.eb-actions button{flex:1 1 8rem}
+.go{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.eb .note a{color:var(--accent)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.82rem;color:var(--muted);margin-top:-12px}
+.lg{display:inline-block;width:.75rem;height:.75rem;border-radius:50%;margin-right:6px;vertical-align:-1px;border:2px solid var(--surface);box-shadow:0 0 0 1px var(--line)}
+.lg.own{background:var(--accent)}.lg.ebd{background:var(--eb)}.lg.me{background:var(--mark)}
 .note{font-size:.85rem;color:var(--muted);margin:0}
 @media (prefers-reduced-motion:no-preference){.obs.new{animation:pop .5s ease-out}@keyframes pop{from{background:color-mix(in srgb,var(--mark) 25%,transparent)}to{background:transparent}}}
 </style>
@@ -195,7 +215,27 @@ dialog#sp::backdrop{background:rgb(10 20 15/.55)}
   </div>
 
   <section id="v-map" class="view" role="tabpanel" aria-labelledby="tab-map" hidden>
+    <details class="eb" id="eb">
+      <summary><span>Muiden havainnot <small>eBird</small></span><span id="eb-sum" class="eb-sum">Pois päältä</span></summary>
+      <div class="eb-body">
+        <div class="eb-row">
+          <label for="eb-area">Alue
+            <select id="eb-area"><option value="near">Lähelläni (25 km)</option><option value="FI">Koko Suomi</option></select>
+          </label>
+          <label for="eb-back">Ajalta
+            <select id="eb-back"><option value="1">1 päivä</option><option value="3">3 päivää</option><option value="7" selected>7 päivää</option><option value="14">14 päivää</option><option value="30">30 päivää</option></select>
+          </label>
+        </div>
+        <label for="eb-key">eBird-avain
+          <input id="eb-key" type="password" autocomplete="off" spellcheck="false" placeholder="Liitä avain tähän">
+        </label>
+        <p class="note">Avaimen saat ilmaiseksi osoitteesta <a href="https://ebird.org/api/keygen" target="_blank" rel="noopener">ebird.org/api/keygen</a> kirjautumalla eBird-tilillä. Avain tallentuu vain tähän laitteeseen.</p>
+        <div class="eb-actions"><button type="button" id="eb-go" class="go">Näytä kartalla</button><button type="button" id="eb-off" hidden>Piilota</button></div>
+        <p id="eb-msg" class="msg" role="status"></p>
+      </div>
+    </details>
     <div id="map" aria-label="Havaintojen kartta"></div>
+    <div class="legend" id="legend"><span><i class="lg own"></i>Omat havainnot</span><span id="lg-eb" hidden><i class="lg ebd"></i>Muiden havainnot (eBird)</span><span><i class="lg me"></i>Olet tässä</span></div>
     <p id="map-note" class="note"></p>
   </section>
 
@@ -365,6 +405,7 @@ dialog#sp::backdrop{background:rgb(10 20 15/.55)}
   }
 
   // Kartta
+  let ebLayer = null;
   let map = null, layer = null, meMarker = null, leafletLoading = null;
   function loadLeaflet(){
     if (window.L) return Promise.resolve();
@@ -402,7 +443,8 @@ dialog#sp::backdrop{background:rgb(10 20 15/.55)}
     const missing = obs.length - located.length;
     $("map-note").textContent = !obs.length ? "Kartalla näkyvät havainnot, joille on tallennettu sijainti." :
       missing ? `${missing} havainnolla ei ole sijaintia, joten ne eivät näy kartalla.` : "";
-    if (pts.length) map.fitBounds(pts, { padding: [32, 32], maxZoom: 14 });
+    if (ebShown) { /* eBird-haku asettaa näkymän itse */ }
+    else if (pts.length) map.fitBounds(pts, { padding: [32, 32], maxZoom: 14 });
     else if (coords) map.setView([coords.lat, coords.lon], 12);
     else map.setView([64.5, 26], 5);
     if (coords){
@@ -417,6 +459,7 @@ dialog#sp::backdrop{background:rgb(10 20 15/.55)}
       map = L.map("map", { zoomControl: true, attributionControl: true });
       L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }).addTo(map);
       layer = L.layerGroup().addTo(map);
+      ebLayer = L.layerGroup().addTo(map);
     }
     map.invalidateSize();
     renderMap();
@@ -571,6 +614,80 @@ dialog#sp::backdrop{background:rgb(10 20 15/.55)}
     loadThumbs(box);
   }
   $("sp-q").addEventListener("input", renderSpecies);
+
+  // eBird: muiden tuoreet havainnot. Avain säilyy vain tässä laitteessa.
+  const EB_KEY = "lintuhavainnot.ebirdKey", EB_PREFS = "lintuhavainnot.ebirdPrefs";
+  let ebShown = false;
+  try { $("eb-key").value = localStorage.getItem(EB_KEY) || ""; const pr = JSON.parse(localStorage.getItem(EB_PREFS)) || {}; if (pr.area) $("eb-area").value = pr.area; if (pr.back) $("eb-back").value = pr.back; } catch(e){}
+  if (!$("eb-key").value) $("eb").open = false;
+  const ebMsg = (t, err) => { $("eb-msg").textContent = t; $("eb-msg").className = "msg" + (err ? " err" : ""); };
+  const ebDate = new Intl.DateTimeFormat("fi-FI", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" });
+  function parseObsDt(t){ // eBird: "2026-10-07 14:30" tai "2026-10-07" paikallista aikaa
+    const m = /^(\d{4})-(\d{2})-(\d{2})(?: (\d{2}):(\d{2}))?/.exec(t || "");
+    if (!m) return null;
+    return { d: new Date(+m[1], m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0)), hasTime: !!m[4] };
+  }
+  async function ebFetch(){
+    const key = $("eb-key").value.trim();
+    if (!key){ ebMsg("Liitä ensin eBird-avain.", true); $("eb-key").focus(); return; }
+    try { localStorage.setItem(EB_KEY, key); localStorage.setItem(EB_PREFS, JSON.stringify({ area: $("eb-area").value, back: $("eb-back").value })); } catch(e){}
+    const back = $("eb-back").value;
+    let url;
+    if ($("eb-area").value === "near"){
+      if (!coords){ ebMsg("Sijaintiasi ei tiedetä. Salli sijainti tai valitse Koko Suomi.", true); return; }
+      url = `https://api.ebird.org/v2/data/obs/geo/recent?lat=${coords.lat}&lng=${coords.lon}&dist=25&back=${back}&sppLocale=fi&maxResults=500`;
+    } else {
+      url = `https://api.ebird.org/v2/data/obs/FI/recent?back=${back}&sppLocale=fi&maxResults=500`;
+    }
+    ebMsg("Haetaan havaintoja eBirdistä…");
+    $("eb-go").disabled = true;
+    let data;
+    try {
+      const r = await fetch(url, { headers: { "X-eBirdApiToken": key } });
+      if (r.status === 401 || r.status === 403){ ebMsg("eBird ei hyväksynyt avainta. Tarkista, että liitit sen kokonaan.", true); return; }
+      if (!r.ok){ ebMsg(`eBird vastasi virheellä (${r.status}). Yritä hetken päästä uudelleen.`, true); return; }
+      data = await r.json();
+    } catch(e){ ebMsg("eBirdiin ei saatu yhteyttä. Tarkista verkkoyhteys.", true); return; }
+    finally { $("eb-go").disabled = false; }
+    if (!map){ await openMap(); if (!map) return; }
+    ebLayer.clearLayers();
+    const pts = [];
+    const bySpot = new Map();
+    for (const o of Array.isArray(data) ? data : []){
+      if (!Number.isFinite(o.lat) || !Number.isFinite(o.lng)) continue;
+      const k = (o.locId || "") + o.lat.toFixed(4) + o.lng.toFixed(4);
+      if (!bySpot.has(k)) bySpot.set(k, []);
+      bySpot.get(k).push(o);
+    }
+    for (const items of bySpot.values()){
+      const { lat, lng, locName } = items[0]; pts.push([lat, lng]);
+      const rows = items.slice(0, 10).map(o => {
+        const dt = parseObsDt(o.obsDt);
+        const when = dt ? (dt.hasTime ? ebDate.format(dt.d) : dayFmt.format(dt.d)) : "";
+        const name = o.comName || o.sciName || o.speciesCode;
+        return `<div style="margin-top:8px"><b><a href="#" class="sp-link" data-sp="${esc(name)}">${esc(name)}</a></b>${o.sciName && o.sciName !== name ? ` <i>${esc(o.sciName)}</i>` : ""}<span class="pm">${o.howMany ? o.howMany + " yks. · " : ""}${esc(when)}${o.subId ? ` · <a href="https://ebird.org/checklist/${encodeURIComponent(o.subId)}" target="_blank" rel="noopener">havaintolista</a>` : ""}</span></div>`;
+      }).join("");
+      const more = items.length > 10 ? `<span class="pm">+ ${items.length - 10} muuta lajia</span>` : "";
+      L.circleMarker([lat, lng], { radius: Math.min(5 + Math.sqrt(items.length) * 2, 14), color: css("--surface"), weight: 2, fillColor: css("--eb"), fillOpacity: .85 })
+        .bindPopup(`<span class="pm">${esc(locName || "")} · eBird</span>` + rows + more, { maxWidth: 260 }).addTo(ebLayer);
+    }
+    // Omat merkit päällimmäisiksi
+    layer.eachLayer(m => m.bringToFront?.());
+    ebShown = true; $("eb-off").hidden = false; $("lg-eb").hidden = false;
+    const n = Array.isArray(data) ? data.length : 0;
+    const spp = new Set((data || []).map(o => o.speciesCode)).size;
+    const areaTxt = $("eb-area").value === "near" ? "25 km säteellä" : "Suomessa";
+    $("eb-sum").textContent = n ? `${spp} lajia, ${pts.length} paikkaa` : "Ei havaintoja";
+    ebMsg(n ? `${spp} lajia ${pts.length} paikassa ${areaTxt} viimeisen ${back === "1" ? "vuorokauden" : back + " päivän"} ajalta. Kartalla näkyy kunkin lajin tuorein havainto.` : `eBirdissä ei ole havaintoja ${areaTxt} tältä ajalta.`);
+    if (pts.length) $("eb").open = false;
+    if (pts.length){ if (coords && $("eb-area").value === "near") pts.push([coords.lat, coords.lon]); map.fitBounds(pts, { padding: [24, 24], maxZoom: 13 }); }
+  }
+  function ebHide(){
+    ebLayer?.clearLayers(); ebShown = false; $("eb-off").hidden = true; $("lg-eb").hidden = true;
+    $("eb-sum").textContent = "Pois päältä"; ebMsg(""); renderMap();
+  }
+  $("eb-go").onclick = ebFetch;
+  $("eb-off").onclick = ebHide;
 
   // Varmuuskopio
   const BK_KEY = "lintuhavainnot.lastBackup";
