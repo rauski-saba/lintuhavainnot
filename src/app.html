@@ -32,18 +32,11 @@ label{display:flex;flex-direction:column;gap:6px;font-weight:700;font-size:.85re
 input,textarea{font:inherit;font-weight:400;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;width:100%;min-width:0}
 textarea{resize:vertical;min-height:3.2em}
 input:focus-visible,textarea:focus-visible,button:focus-visible{outline:3px solid var(--mark);outline-offset:2px}
-.row{display:flex;flex-wrap:wrap;gap:14px 12px}
-.row>*{min-width:0;flex:1 1 13rem}
-.row>label:first-child{flex:0 0 10rem}
 .combo{position:relative}
 .sugg{list-style:none;margin:4px 0 0;padding:4px;position:absolute;left:0;right:0;z-index:5;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgb(0 0 0/.15);max-height:16rem;overflow-y:auto}
 .sugg li{padding:10px 12px;border-radius:8px;cursor:pointer;display:flex;justify-content:space-between;gap:8px}
 .sugg li[aria-selected="true"],.sugg li:hover{background:var(--bg)}
 .sugg i{color:var(--muted);font-size:.85rem}
-.stepper{display:flex;gap:6px}
-.stepper input{text-align:center;font-family:var(--f-data);font-variant-numeric:tabular-nums}
-.stepper button{flex:0 0 2.75rem;padding:10px 0}
-.stepper input{padding-inline:4px}
 button{font:inherit;font-weight:700;cursor:pointer;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg);padding:10px 12px}
 .loc{display:flex;flex-direction:column;gap:8px;border-top:1px dashed var(--line);padding-top:14px}
 .loc-status{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:.9rem}
@@ -176,14 +169,9 @@ select{font:inherit;font-weight:400;color:var(--fg);background:var(--bg);border:
       </label>
       <ul id="sugg" class="sugg" role="listbox" hidden></ul>
     </div>
-    <div class="row">
-      <label for="count">Määrä
-        <div class="stepper"><button type="button" id="minus" aria-label="Vähennä">−</button><input id="count" name="count" type="text" inputmode="numeric" pattern="[0-9]*" value="1"><button type="button" id="plus" aria-label="Lisää">+</button></div>
-      </label>
-      <label for="when">Aika
-        <input id="when" name="when" type="datetime-local">
-      </label>
-    </div>
+    <label for="when">Aika
+      <input id="when" name="when" type="datetime-local">
+    </label>
     <label for="notes">Muistiinpano
       <textarea id="notes" name="notes" rows="2" placeholder="Esim. lauloi kuusen latvassa"></textarea>
     </label>
@@ -301,7 +289,7 @@ select{font:inherit;font-weight:400;color:var(--fg);background:var(--bg);border:
     sugg.hidden = !hits.length;
     input.setAttribute("aria-expanded", String(!!hits.length));
   }
-  function pick(i){ input.value = hits[i][0]; hits = []; sugg.hidden = true; input.setAttribute("aria-expanded", "false"); $("count").focus(); }
+  function pick(i){ input.value = hits[i][0]; hits = []; sugg.hidden = true; input.setAttribute("aria-expanded", "false"); $("notes").focus(); }
   input.addEventListener("input", renderSugg);
   input.addEventListener("blur", () => { sugg.hidden = true; });
   input.addEventListener("keydown", e => {
@@ -315,9 +303,6 @@ select{font:inherit;font-weight:400;color:var(--fg);background:var(--bg);border:
     else if (e.key === "Escape"){ sugg.hidden = true; }
   });
 
-  // Määrä
-  $("minus").onclick = () => { $("count").value = Math.max(1, (+$("count").value || 1) - 1); };
-  $("plus").onclick = () => { $("count").value = (+$("count").value || 0) + 1; };
 
   // Sijainti
   function setLoc(state, text){ $("loc-dot").className = "dot " + state; $("loc-text").textContent = text; }
@@ -345,7 +330,7 @@ select{font:inherit;font-weight:400;color:var(--fg);background:var(--bg);border:
     const o = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
       species: canon ? canon[0] : name.charAt(0).toUpperCase() + name.slice(1),
-      count: Math.max(1, parseInt($("count").value, 10) || 1),
+      count: 1,
       when: $("when").value ? new Date($("when").value).toISOString() : new Date().toISOString(),
       notes: $("notes").value.trim(),
       place: $("place").value.trim(),
@@ -354,7 +339,7 @@ select{font:inherit;font-weight:400;color:var(--fg);background:var(--bg);border:
     obs.push(o); lastId = o.id;
     const ok = persist();
     msg(ok ? `${o.species} tallennettu.` : `${o.species} lisätty, mutta tallennus laitteeseen epäonnistui.`, !ok);
-    input.value = ""; $("count").value = 1; $("notes").value = ""; resetWhen();
+    input.value = ""; $("notes").value = ""; resetWhen();
     render(); input.focus();
   });
 
@@ -384,13 +369,12 @@ select{font:inherit;font-weight:400;color:var(--fg);background:var(--bg);border:
         const la = sci.get(o.species.toLowerCase());
         if (la){ const s = document.createElement("small"); s.textContent = la; n.append(s); }
         const right = document.createElement("div"); right.className = "right"; right.style.display = "flex"; right.style.gap = "6px"; right.style.alignItems = "center";
-        const c = document.createElement("span"); c.className = "n"; c.textContent = o.count + " yks.";
         const d = document.createElement("button"); d.type = "button"; d.className = "del"; d.textContent = "Poista";
         d.onclick = () => {
           if (!d.classList.contains("confirm")){ d.classList.add("confirm"); d.textContent = "Varmasti?"; setTimeout(() => { d.classList.remove("confirm"); d.textContent = "Poista"; }, 4000); return; }
           obs = obs.filter(x => x.id !== o.id); persist(); msg(`${o.species} poistettu.`); render();
         };
-        right.append(c, d);
+        right.append(d);
         const meta = document.createElement("div"); meta.className = "meta";
         const bits = [];
         if (o.place) bits.push(document.createTextNode(o.place));
@@ -429,12 +413,11 @@ select{font:inherit;font-weight:400;color:var(--fg);background:var(--bg);border:
     for (const items of spots.values()){
       items.sort((a, b) => b.when.localeCompare(a.when));
       const { lat, lon } = items[0]; pts.push([lat, lon]);
-      const total = items.reduce((s, o) => s + o.count, 0);
       const m = L.circleMarker([lat, lon], { radius: Math.min(7 + Math.sqrt(items.length) * 3, 18), color: css("--surface"), weight: 2, fillColor: css("--accent"), fillOpacity: .9 });
       const head = items[0].place ? `<span class="pm">${esc(items[0].place)}</span>` : "";
       const rows = items.slice(0, 8).map(o => {
         const la = sci.get(o.species.toLowerCase());
-        return `<div style="margin-top:8px"><b><a href="#" class="sp-link" data-sp="${esc(o.species)}">${esc(o.species)}</a></b>${la ? ` <i>${esc(la)}</i>` : ""}<span class="pm">${o.count} yks. · ${dayFmt.format(new Date(o.when))} ${timeFmt.format(new Date(o.when))}</span>${o.notes ? esc(o.notes) : ""}</div>`;
+        return `<div style="margin-top:8px"><b><a href="#" class="sp-link" data-sp="${esc(o.species)}">${esc(o.species)}</a></b>${la ? ` <i>${esc(la)}</i>` : ""}<span class="pm">${dayFmt.format(new Date(o.when))} ${timeFmt.format(new Date(o.when))}</span>${o.notes ? esc(o.notes) : ""}</div>`;
       }).join("");
       const more = items.length > 8 ? `<span class="pm">+ ${items.length - 8} muuta</span>` : "";
       m.bindPopup(head + rows + more, { maxWidth: 260 });
@@ -536,8 +519,7 @@ select{font:inherit;font-weight:400;color:var(--fg);background:var(--bg);border:
     const mine = obs.filter(o => o.species.toLowerCase() === key).sort((a, b) => a.when.localeCompare(b.when));
     const stats = $("sp-stats");
     if (mine.length){
-      const total = mine.reduce((s, o) => s + o.count, 0);
-      stats.innerHTML = `<span><b>${mine.length}</b>${mine.length === 1 ? "havainto" : "havaintoa"}</span><span><b>${total}</b>${total === 1 ? "yksilö" : "yksilöä"}</span><span><b>${dayFmt.format(new Date(mine[0].when))}</b>ensimmäinen</span>`;
+      stats.innerHTML = `<span><b>${mine.length}</b>${mine.length === 1 ? "havainto" : "havaintoa"}</span><span><b>${dayFmt.format(new Date(mine[0].when))}</b>ensimmäinen</span>`;
       stats.hidden = false;
     } else { stats.hidden = true; }
     $("sp-text").textContent = ""; $("sp-credit").textContent = "";
