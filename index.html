@@ -122,6 +122,16 @@ dialog#sp::backdrop{background:rgb(10 20 15/.55)}
 .sp-links{display:flex;gap:16px;flex-wrap:wrap;font-size:.85rem}
 .sp-links a{color:var(--accent)}
 .credit{font-size:.75rem;color:var(--muted)}
+.backup{display:flex;flex-direction:column;gap:12px;margin-top:32px}
+.bk-btns{display:flex;flex-wrap:wrap;gap:8px}
+.bk-btns>*{flex:1 1 12rem}
+.filebtn{font-weight:700;font-size:inherit;letter-spacing:0;cursor:pointer;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg);padding:10px 12px;display:flex;align-items:center;justify-content:center;text-align:center}
+.filebtn:focus-within{outline:3px solid var(--mark);outline-offset:2px}
+.filebtn input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.bk-confirm{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.bk-confirm p{margin:0}
+.bk-confirm div{display:flex;gap:8px;flex-wrap:wrap}
+.bk-confirm .go{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
 .note{font-size:.85rem;color:var(--muted);margin:0}
 @media (prefers-reduced-motion:no-preference){.obs.new{animation:pop .5s ease-out}@keyframes pop{from{background:color-mix(in srgb,var(--mark) 25%,transparent)}to{background:transparent}}}
 </style>
@@ -170,6 +180,17 @@ dialog#sp::backdrop{background:rgb(10 20 15/.55)}
   <section aria-labelledby="h-list">
     <h2 id="h-list">Havainnot</h2>
     <div id="list"></div>
+    <section class="backup" aria-labelledby="h-backup">
+      <h2 id="h-backup">Varmuuskopio</h2>
+      <p class="note">Havainnot tallentuvat vain tähän laitteeseen. Tallenna varmuuskopio silloin tällöin, niin havainnot säilyvät, vaikka puhelin vaihtuisi. <span id="bk-last"></span></p>
+      <div class="bk-btns">
+        <button type="button" id="bk-save">Tallenna varmuuskopio</button>
+        <button type="button" id="bk-csv">Vie taulukkona (CSV)</button>
+        <label class="filebtn" for="bk-file">Palauta varmuuskopiosta<input id="bk-file" type="file" accept=".json,application/json"></label>
+      </div>
+      <div id="bk-confirm" class="bk-confirm" hidden></div>
+      <p id="bk-msg" class="msg" role="status"></p>
+    </section>
   </section>
   </div>
 
@@ -198,7 +219,7 @@ dialog#sp::backdrop{background:rgb(10 20 15/.55)}
       <div id="sp-credit" class="credit"></div>
     </div>
   </dialog>
-  <p class="note">Havainnot tallentuvat vain tähän laitteeseen.</p>
+
 </div>
 
 <script>
@@ -615,6 +636,73 @@ const SPECIES = [
     loadThumbs(box);
   }
   $("sp-q").addEventListener("input", renderSpecies);
+
+  // Varmuuskopio
+  const BK_KEY = "lintuhavainnot.lastBackup";
+  const bkMsg = (t, err) => { $("bk-msg").textContent = t; $("bk-msg").className = "msg" + (err ? " err" : ""); };
+  function showLast(){
+    let t = null; try { t = localStorage.getItem(BK_KEY); } catch(e){}
+    $("bk-last").textContent = t ? `Edellinen varmuuskopio: ${dayFmt.format(new Date(t))}.` : "";
+  }
+  const stamp = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
+  async function deliver(filename, text, type){
+    const file = new File([text], filename, { type });
+    // Puhelimessa jakovalikko (Tallenna tiedostoihin, Drive, sähköposti…), muuten tavallinen lataus
+    if (navigator.canShare?.({ files: [file] })){
+      try { await navigator.share({ files: [file], title: filename }); return true; }
+      catch(e){ if (e.name === "AbortError") return false; }
+    }
+    const url = URL.createObjectURL(file);
+    const a = document.createElement("a"); a.href = url; a.download = filename; document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    return true;
+  }
+  $("bk-save").onclick = async () => {
+    if (!obs.length){ bkMsg("Ei vielä havaintoja tallennettavaksi.", true); return; }
+    const data = JSON.stringify({ app: "lintuhavainnot", version: 1, exported: new Date().toISOString(), observations: obs }, null, 1);
+    if (await deliver(`lintuhavainnot-${stamp()}.json`, data, "application/json")){
+      try { localStorage.setItem(BK_KEY, new Date().toISOString()); } catch(e){}
+      showLast(); bkMsg(`Varmuuskopio tehty (${obs.length} havaintoa).`);
+    }
+  };
+  $("bk-csv").onclick = async () => {
+    if (!obs.length){ bkMsg("Ei vielä havaintoja vietäväksi.", true); return; }
+    const q = v => { const t = v == null ? "" : String(v); return /[";\n\r]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+    const head = ["Päivä", "Aika", "Laji", "Tieteellinen nimi", "Määrä", "Paikka", "Leveysaste", "Pituusaste", "Muistiinpano"];
+    const rows = [...obs].sort((a, b) => a.when.localeCompare(b.when)).map(o => {
+      const d = new Date(o.when);
+      return [`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`, `${pad(d.getHours())}:${pad(d.getMinutes())}`, o.species, sci.get(o.species.toLowerCase()) || "", o.count, o.place, o.lat, o.lon, o.notes].map(q).join(";");
+    });
+    // BOM ja puolipiste, jotta Excel avaa ääkköset ja sarakkeet oikein
+    if (await deliver(`lintuhavainnot-${stamp()}.csv`, "\ufeff" + [head.join(";"), ...rows].join("\r\n"), "text/csv")) bkMsg("Taulukko viety.");
+  };
+  $("bk-file").addEventListener("change", async e => {
+    const f = e.target.files?.[0]; e.target.value = "";
+    if (!f) return;
+    let list;
+    try {
+      const j = JSON.parse(await f.text());
+      list = Array.isArray(j) ? j : j.observations;
+      if (!Array.isArray(list)) throw 0;
+      list = list.filter(o => o && typeof o.species === "string" && o.species.trim() && typeof o.when === "string" && !isNaN(Date.parse(o.when)))
+        .map(o => ({ id: String(o.id || Date.now().toString(36) + Math.random().toString(36).slice(2, 6)), species: o.species.trim(), count: Math.max(1, parseInt(o.count, 10) || 1),
+          when: new Date(o.when).toISOString(), notes: String(o.notes || ""), place: String(o.place || ""),
+          lat: Number.isFinite(o.lat) ? o.lat : null, lon: Number.isFinite(o.lon) ? o.lon : null, acc: Number.isFinite(o.acc) ? o.acc : null }));
+    } catch(err){ bkMsg("Tiedostoa ei voitu lukea. Valitse sovelluksen tekemä varmuuskopio (.json).", true); return; }
+    const have = new Set(obs.map(o => o.id));
+    const fresh = list.filter(o => !have.has(o.id));
+    const box = $("bk-confirm");
+    if (!fresh.length){ box.hidden = true; bkMsg(list.length ? "Kaikki tiedoston havainnot ovat jo sovelluksessa." : "Tiedostossa ei ollut havaintoja.", !list.length); return; }
+    box.innerHTML = "";
+    const p = document.createElement("p"); p.textContent = `Tiedostossa on ${fresh.length} uutta havaintoa${list.length > fresh.length ? ` (${list.length - fresh.length} on jo sovelluksessa)` : ""}. Lisätäänkö ne? Nykyiset havainnot säilyvät.`;
+    const row = document.createElement("div");
+    const ok = document.createElement("button"); ok.type = "button"; ok.className = "go"; ok.textContent = "Lisää havainnot";
+    const no = document.createElement("button"); no.type = "button"; no.textContent = "Peruuta";
+    ok.onclick = () => { obs.push(...fresh); const saved = persist(); box.hidden = true; render(); bkMsg(saved ? `${fresh.length} havaintoa palautettu.` : "Havainnot lisätty, mutta tallennus laitteeseen epäonnistui.", !saved); };
+    no.onclick = () => { box.hidden = true; bkMsg(""); };
+    row.append(ok, no); box.append(p, row); box.hidden = false; bkMsg("");
+  });
+  showLast();
 
   resetWhen(); render(); locate();
   if (location.hash === "#kartta") show("map");
