@@ -1,0 +1,258 @@
+<title>Lintuhavainnot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: yksi kapea maastomuistikirjan sarake; lomake ylhäällä, havainnot päivittäin alla. */
+:root{
+  --bg:#eef2ee; --surface:#ffffff; --fg:#17231d; --muted:#5a6b62; --line:#d3ddd6;
+  --accent:#2c5c4c; --accent-fg:#ffffff; --mark:#c9952a; --danger:#a63a2b;
+  --f-display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --f-body:"Atkinson Hyperlegible",ui-sans-serif,system-ui,sans-serif;
+  --f-data:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111915; --surface:#19241f; --fg:#e4ece6; --muted:#9aaba1; --line:#2c3b33;
+  --accent:#7fc0a6; --accent-fg:#0d1612; --mark:#e2b551; --danger:#ef8a78; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111915; --surface:#19241f; --fg:#e4ece6; --muted:#9aaba1; --line:#2c3b33;
+  --accent:#7fc0a6; --accent-fg:#0d1612; --mark:#e2b551; --danger:#ef8a78; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{background:var(--bg)}
+body{color:var(--fg);font:17px/1.5 var(--f-body);margin:0}
+.wrap{max-width:34rem;margin:0 auto;padding-inline:16px;padding-block:20px 48px;display:flex;flex-direction:column;gap:24px}
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{font:800 2rem/1.05 var(--f-display);letter-spacing:-.02em;margin:0;text-wrap:balance}
+.tally{display:flex;gap:16px;font-family:var(--f-data);font-size:.8rem;color:var(--muted)}
+.tally b{display:block;font:500 1.4rem/1 var(--f-data);color:var(--fg);font-variant-numeric:tabular-nums}
+form{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:14px}
+label{display:flex;flex-direction:column;gap:6px;font-weight:700;font-size:.85rem;letter-spacing:.02em}
+input,textarea{font:inherit;font-weight:400;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;width:100%;min-width:0}
+textarea{resize:vertical;min-height:3.2em}
+input:focus-visible,textarea:focus-visible,button:focus-visible{outline:3px solid var(--mark);outline-offset:2px}
+.row{display:flex;flex-wrap:wrap;gap:14px 12px}
+.row>*{min-width:0;flex:1 1 13rem}
+.row>label:first-child{flex:0 0 10rem}
+.combo{position:relative}
+.sugg{list-style:none;margin:4px 0 0;padding:4px;position:absolute;left:0;right:0;z-index:5;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgb(0 0 0/.15);max-height:16rem;overflow-y:auto}
+.sugg li{padding:10px 12px;border-radius:8px;cursor:pointer;display:flex;justify-content:space-between;gap:8px}
+.sugg li[aria-selected="true"],.sugg li:hover{background:var(--bg)}
+.sugg i{color:var(--muted);font-size:.85rem}
+.stepper{display:flex;gap:6px}
+.stepper input{text-align:center;font-family:var(--f-data);font-variant-numeric:tabular-nums}
+.stepper button{flex:0 0 2.75rem;padding:10px 0}
+.stepper input{padding-inline:4px}
+button{font:inherit;font-weight:700;cursor:pointer;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg);padding:10px 12px}
+.loc{display:flex;flex-direction:column;gap:8px;border-top:1px dashed var(--line);padding-top:14px}
+.loc-status{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:.9rem}
+.loc-status code{font-family:var(--f-data);font-size:.85rem}
+.dot{display:inline-block;width:.6rem;height:.6rem;border-radius:50%;background:var(--muted);margin-right:6px;vertical-align:middle}
+.dot.ok{background:var(--accent)}.dot.wait{background:var(--mark)}
+.save{background:var(--accent);color:var(--accent-fg);border-color:var(--accent);padding:14px;font-size:1.05rem}
+.msg:empty{display:none}
+.msg{font-size:.9rem;color:var(--accent);margin:0}
+.msg.err{color:var(--danger)}
+h2{font:600 1.15rem/1.2 var(--f-display);margin:0}
+.day{display:flex;flex-direction:column;gap:2px}
+.day h3{font:500 .78rem/1 var(--f-data);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:16px 0 6px}
+.obs{display:grid;grid-template-columns:3.2rem 1fr auto;gap:4px 12px;align-items:start;padding:12px 0;border-bottom:1px solid var(--line)}
+.obs time{font:500 .85rem/1.6 var(--f-data);color:var(--muted);font-variant-numeric:tabular-nums}
+.obs .name{font-weight:700;min-width:0;overflow-wrap:anywhere}
+.obs .name small{font-weight:400;font-style:italic;color:var(--muted);margin-left:6px}
+.obs .meta{grid-column:2/4;font-size:.88rem;color:var(--muted);overflow-wrap:anywhere}
+.obs .meta code{font-family:var(--f-data);font-size:.8rem}
+.obs .n{font:500 .95rem/1.5 var(--f-data);font-variant-numeric:tabular-nums}
+.del{padding:2px 8px;font-size:.8rem;font-weight:400;color:var(--muted);background:none;border-color:transparent}
+.del.confirm{color:var(--danger);border-color:var(--danger)}
+.empty{color:var(--muted);border:1px dashed var(--line);border-radius:14px;padding:20px;text-align:center}
+.note{font-size:.85rem;color:var(--muted);margin:0}
+@media (prefers-reduced-motion:no-preference){.obs.new{animation:pop .5s ease-out}@keyframes pop{from{background:color-mix(in srgb,var(--mark) 25%,transparent)}to{background:transparent}}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Lintuhavainnot</h1>
+    <div class="tally"><span><b id="t-species">0</b>lajia</span><span><b id="t-obs">0</b>havaintoa</span></div>
+  </header>
+
+  <form id="f" autocomplete="off" novalidate>
+    <div class="combo">
+      <label for="species">Laji
+        <input id="species" name="species" placeholder="Esim. talitiainen" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="sugg" enterkeyhint="next">
+      </label>
+      <ul id="sugg" class="sugg" role="listbox" hidden></ul>
+    </div>
+    <div class="row">
+      <label for="count">Määrä
+        <div class="stepper"><button type="button" id="minus" aria-label="Vähennä">−</button><input id="count" name="count" type="text" inputmode="numeric" pattern="[0-9]*" value="1"><button type="button" id="plus" aria-label="Lisää">+</button></div>
+      </label>
+      <label for="when">Aika
+        <input id="when" name="when" type="datetime-local">
+      </label>
+    </div>
+    <label for="notes">Muistiinpano
+      <textarea id="notes" name="notes" rows="2" placeholder="Esim. lauloi kuusen latvassa"></textarea>
+    </label>
+    <div class="loc">
+      <div class="loc-status"><span><span id="loc-dot" class="dot"></span><span id="loc-text">Sijaintia ei ole haettu</span></span><button type="button" id="locate">Hae sijainti</button></div>
+      <label for="place">Paikka
+        <input id="place" name="place" placeholder="Esim. Viikin lahti">
+      </label>
+    </div>
+    <button class="save" type="submit">Tallenna havainto</button>
+    <p id="msg" class="msg" role="status"></p>
+  </form>
+
+  <section aria-labelledby="h-list">
+    <h2 id="h-list">Havainnot</h2>
+    <div id="list"></div>
+  </section>
+  <p class="note">Havainnot tallentuvat vain tähän laitteeseen.</p>
+</div>
+
+<script>
+/*SPECIES*/
+(function(){
+  const KEY = "lintuhavainnot.v1";
+  const $ = id => document.getElementById(id);
+  const sci = new Map(SPECIES.map(([fi, la]) => [fi.toLowerCase(), la]));
+  let obs = load();
+  let coords = null;
+
+  function load(){ try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch(e){ return []; } }
+  function persist(){ try { localStorage.setItem(KEY, JSON.stringify(obs)); return true; } catch(e){ return false; } }
+
+  const pad = n => String(n).padStart(2, "0");
+  const localInput = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  function resetWhen(){ $("when").value = localInput(new Date()); }
+
+  // Lajihaku
+  const input = $("species"), sugg = $("sugg");
+  let hits = [], active = -1;
+  const norm = s => s.toLowerCase().normalize("NFC").trim();
+  function renderSugg(){
+    const q = norm(input.value);
+    hits = q ? SPECIES.filter(([fi, la]) => fi.toLowerCase().includes(q) || la.toLowerCase().includes(q))
+      .sort((a, b) => a[0].toLowerCase().startsWith(q) === b[0].toLowerCase().startsWith(q) ? a[0].localeCompare(b[0], "fi") : a[0].toLowerCase().startsWith(q) ? -1 : 1)
+      .slice(0, 8) : [];
+    if (hits.length === 1 && hits[0][0].toLowerCase() === q) hits = [];
+    active = -1;
+    sugg.replaceChildren(...hits.map(([fi, la], i) => {
+      const li = document.createElement("li");
+      li.setAttribute("role", "option"); li.id = "opt" + i;
+      const b = document.createElement("span"); b.textContent = fi;
+      const it = document.createElement("i"); it.textContent = la;
+      li.append(b, it);
+      li.addEventListener("mousedown", e => { e.preventDefault(); pick(i); });
+      return li;
+    }));
+    sugg.hidden = !hits.length;
+    input.setAttribute("aria-expanded", String(!!hits.length));
+  }
+  function pick(i){ input.value = hits[i][0]; hits = []; sugg.hidden = true; input.setAttribute("aria-expanded", "false"); $("count").focus(); }
+  input.addEventListener("input", renderSugg);
+  input.addEventListener("blur", () => { sugg.hidden = true; });
+  input.addEventListener("keydown", e => {
+    if (sugg.hidden) return;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp"){
+      e.preventDefault();
+      active = (active + (e.key === "ArrowDown" ? 1 : -1) + hits.length) % hits.length;
+      [...sugg.children].forEach((li, i) => li.setAttribute("aria-selected", String(i === active)));
+      input.setAttribute("aria-activedescendant", "opt" + active);
+    } else if (e.key === "Enter" && active >= 0){ e.preventDefault(); pick(active); }
+    else if (e.key === "Escape"){ sugg.hidden = true; }
+  });
+
+  // Määrä
+  $("minus").onclick = () => { $("count").value = Math.max(1, (+$("count").value || 1) - 1); };
+  $("plus").onclick = () => { $("count").value = (+$("count").value || 0) + 1; };
+
+  // Sijainti
+  function setLoc(state, text){ $("loc-dot").className = "dot " + state; $("loc-text").textContent = text; }
+  function locate(){
+    if (!("geolocation" in navigator)){ setLoc("", "GPS ei ole käytettävissä. Kirjoita paikka."); return; }
+    setLoc("wait", "Haetaan sijaintia…");
+    navigator.geolocation.getCurrentPosition(p => {
+      coords = { lat: +p.coords.latitude.toFixed(5), lon: +p.coords.longitude.toFixed(5), acc: Math.round(p.coords.accuracy) };
+      setLoc("ok", ""); $("loc-text").innerHTML = `<code>${coords.lat}, ${coords.lon}</code> ±${coords.acc} m`;
+    }, err => {
+      coords = null;
+      setLoc("", err.code === 1 ? "Sijaintilupa puuttuu. Kirjoita paikka tai salli sijainti." : "Sijaintia ei saatu. Kirjoita paikka.");
+    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
+  }
+  $("locate").onclick = locate;
+
+  // Tallennus
+  const msg = (t, err) => { $("msg").textContent = t; $("msg").className = "msg" + (err ? " err" : ""); };
+  let lastId = null;
+  $("f").addEventListener("submit", e => {
+    e.preventDefault();
+    const name = input.value.trim();
+    if (!name){ msg("Kirjoita lajin nimi.", true); input.focus(); return; }
+    const canon = SPECIES.find(([fi]) => fi.toLowerCase() === name.toLowerCase());
+    const o = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      species: canon ? canon[0] : name.charAt(0).toUpperCase() + name.slice(1),
+      count: Math.max(1, parseInt($("count").value, 10) || 1),
+      when: $("when").value ? new Date($("when").value).toISOString() : new Date().toISOString(),
+      notes: $("notes").value.trim(),
+      place: $("place").value.trim(),
+      lat: coords?.lat ?? null, lon: coords?.lon ?? null, acc: coords?.acc ?? null
+    };
+    obs.push(o); lastId = o.id;
+    const ok = persist();
+    msg(ok ? `${o.species} tallennettu.` : `${o.species} lisätty, mutta tallennus laitteeseen epäonnistui.`, !ok);
+    input.value = ""; $("count").value = 1; $("notes").value = ""; resetWhen();
+    render(); input.focus();
+  });
+
+  // Lista
+  const dayFmt = new Intl.DateTimeFormat("fi-FI", { weekday: "short", day: "numeric", month: "numeric", year: "numeric" });
+  const timeFmt = new Intl.DateTimeFormat("fi-FI", { hour: "2-digit", minute: "2-digit" });
+  function render(){
+    $("t-obs").textContent = obs.length;
+    $("t-species").textContent = new Set(obs.map(o => o.species.toLowerCase())).size;
+    const list = $("list");
+    if (!obs.length){
+      list.innerHTML = '<p class="empty">Ei vielä havaintoja. Kirjoita lajin nimi yllä ja paina Tallenna.</p>';
+      return;
+    }
+    const sorted = [...obs].sort((a, b) => b.when.localeCompare(a.when));
+    const groups = new Map();
+    for (const o of sorted){ const k = dayFmt.format(new Date(o.when)); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(o); }
+    list.replaceChildren(...[...groups].map(([day, items]) => {
+      const sec = document.createElement("div"); sec.className = "day";
+      const h = document.createElement("h3"); h.textContent = day; sec.append(h);
+      for (const o of items){
+        const row = document.createElement("div"); row.className = "obs" + (o.id === lastId ? " new" : "");
+        const t = document.createElement("time"); t.dateTime = o.when; t.textContent = timeFmt.format(new Date(o.when));
+        const n = document.createElement("div"); n.className = "name"; n.textContent = o.species;
+        const la = sci.get(o.species.toLowerCase());
+        if (la){ const s = document.createElement("small"); s.textContent = la; n.append(s); }
+        const right = document.createElement("div"); right.style.display = "flex"; right.style.gap = "6px"; right.style.alignItems = "center";
+        const c = document.createElement("span"); c.className = "n"; c.textContent = o.count + " yks.";
+        const d = document.createElement("button"); d.type = "button"; d.className = "del"; d.textContent = "Poista";
+        d.onclick = () => {
+          if (!d.classList.contains("confirm")){ d.classList.add("confirm"); d.textContent = "Varmasti?"; setTimeout(() => { d.classList.remove("confirm"); d.textContent = "Poista"; }, 4000); return; }
+          obs = obs.filter(x => x.id !== o.id); persist(); msg(`${o.species} poistettu.`); render();
+        };
+        right.append(c, d);
+        const meta = document.createElement("div"); meta.className = "meta";
+        const bits = [];
+        if (o.place) bits.push(document.createTextNode(o.place));
+        if (o.lat != null){ const code = document.createElement("code"); code.textContent = `${o.lat}, ${o.lon}`; bits.push(code); }
+        if (o.notes) bits.push(document.createTextNode(o.notes));
+        bits.forEach((b, i) => { if (i) meta.append(" · "); meta.append(b); });
+        row.append(t, n, right); if (bits.length) row.append(meta);
+        sec.append(row);
+      }
+      return sec;
+    }));
+  }
+
+  resetWhen(); render(); locate();
+  if ("serviceWorker" in navigator && location.protocol === "https:" && !/claude/.test(location.hostname)){
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  }
+})();
+</script>
