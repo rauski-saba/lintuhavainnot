@@ -87,11 +87,41 @@ h2{font:600 1.15rem/1.2 var(--f-display);margin:0}
 }
 @media (min-width:60rem){
   .wrap{max-width:66rem;padding-inline:32px}
-  .tabs{max-width:24rem}
+  .tabs{max-width:30rem}
   #v-log{display:grid;grid-template-columns:minmax(0,25rem) minmax(0,1fr);align-items:start;gap:40px}
   #v-log form{position:sticky;top:16px}
   #v-log section{padding-top:4px}
 }
+.sp-link{all:unset;cursor:pointer;font-weight:700;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px;text-decoration-thickness:2px}
+.sp-link:hover{text-decoration-color:var(--accent)}
+.sp-link:focus-visible{outline:3px solid var(--mark);outline-offset:2px;border-radius:4px}
+.search{display:flex;flex-direction:column;gap:6px}
+.splist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.splist li{border-bottom:1px solid var(--line)}
+.splist button{all:unset;box-sizing:border-box;width:100%;cursor:pointer;display:grid;grid-template-columns:3.5rem 1fr auto;gap:12px;align-items:center;padding:10px 0}
+.splist button:focus-visible{outline:3px solid var(--mark);outline-offset:-3px;border-radius:8px}
+.thumb{width:3.5rem;height:3.5rem;border-radius:10px;background:var(--surface);border:1px solid var(--line);object-fit:cover;display:block}
+.splist .t{min-width:0;display:flex;flex-direction:column}
+.splist .t b{overflow-wrap:break-word}
+.splist .t i{color:var(--muted);font-size:.85rem}
+.splist .c{font:500 .8rem/1.3 var(--f-data);color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+.sub{font:500 .78rem/1 var(--f-data);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:8px 0 0}
+dialog#sp{border:0;padding:0;background:var(--surface);color:var(--fg);width:min(100%,32rem);max-width:100%;max-height:92vh;max-height:92dvh;border-radius:18px 18px 0 0;margin:auto auto 0;overflow:auto}
+@media (min-width:40rem){dialog#sp{border-radius:18px;margin:auto}}
+dialog#sp::backdrop{background:rgb(10 20 15/.55)}
+.sp-photo{position:relative;background:var(--bg);aspect-ratio:4/3;max-width:100%;max-height:45vh;width:100%}
+.sp-photo img{width:100%;height:100%;object-fit:cover;display:block}
+.sp-photo .ph{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:.9rem;padding:16px;text-align:center}
+.sp-close{position:absolute;top:10px;right:10px;width:2.6rem;height:2.6rem;padding:0;border-radius:50%;background:var(--surface);border-color:var(--line);font-size:1.3rem;line-height:1}
+.sp-body{padding:18px 20px 24px;padding-bottom:calc(24px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px}
+.sp-body h2{font:800 1.6rem/1.1 var(--f-display);letter-spacing:-.01em}
+.sp-body .la{font-style:italic;color:var(--muted);margin-top:-8px}
+.sp-body p{margin:0}
+.sp-stats{display:flex;gap:20px;flex-wrap:wrap;font-family:var(--f-data);font-size:.8rem;color:var(--muted);border-block:1px solid var(--line);padding-block:10px}
+.sp-stats b{display:block;font:500 1.1rem/1.2 var(--f-data);color:var(--fg)}
+.sp-links{display:flex;gap:16px;flex-wrap:wrap;font-size:.85rem}
+.sp-links a{color:var(--accent)}
+.credit{font-size:.75rem;color:var(--muted)}
 .note{font-size:.85rem;color:var(--muted);margin:0}
 @media (prefers-reduced-motion:no-preference){.obs.new{animation:pop .5s ease-out}@keyframes pop{from{background:color-mix(in srgb,var(--mark) 25%,transparent)}to{background:transparent}}}
 </style>
@@ -105,6 +135,7 @@ h2{font:600 1.15rem/1.2 var(--f-display);margin:0}
   <div class="tabs" role="tablist">
     <button type="button" role="tab" id="tab-log" aria-controls="v-log" aria-selected="true">Kirjaa</button>
     <button type="button" role="tab" id="tab-map" aria-controls="v-map" aria-selected="false">Kartta</button>
+    <button type="button" role="tab" id="tab-species" aria-controls="v-species" aria-selected="false">Lajit</button>
   </div>
 
   <div id="v-log" class="view" role="tabpanel" aria-labelledby="tab-log">
@@ -146,6 +177,27 @@ h2{font:600 1.15rem/1.2 var(--f-display);margin:0}
     <div id="map" aria-label="Havaintojen kartta"></div>
     <p id="map-note" class="note"></p>
   </section>
+
+  <section id="v-species" class="view" role="tabpanel" aria-labelledby="tab-species" hidden>
+    <div class="search">
+      <label for="sp-q">Hae lajia</label>
+      <input id="sp-q" type="search" placeholder="Esim. tikka tai Dendrocopos" enterkeyhint="search">
+    </div>
+    <div id="sp-results"></div>
+  </section>
+
+  <dialog id="sp" aria-labelledby="sp-name">
+    <div class="sp-photo"><img id="sp-img" alt="" hidden><div id="sp-ph" class="ph">Haetaan kuvaa…</div>
+      <button type="button" class="sp-close" id="sp-close" aria-label="Sulje">×</button></div>
+    <div class="sp-body">
+      <h2 id="sp-name"></h2>
+      <div id="sp-la" class="la"></div>
+      <div id="sp-stats" class="sp-stats"></div>
+      <p id="sp-text"></p>
+      <div class="sp-links"><a id="sp-wiki" target="_blank" rel="noopener" hidden>Lue lisää Wikipediasta</a><a id="sp-inat" target="_blank" rel="noopener" hidden>Katso iNaturalistissa</a></div>
+      <div id="sp-credit" class="credit"></div>
+    </div>
+  </dialog>
   <p class="note">Havainnot tallentuvat vain tähän laitteeseen.</p>
 </div>
 
@@ -266,7 +318,8 @@ h2{font:600 1.15rem/1.2 var(--f-display);margin:0}
       for (const o of items){
         const row = document.createElement("div"); row.className = "obs" + (o.id === lastId ? " new" : "");
         const t = document.createElement("time"); t.dateTime = o.when; t.textContent = timeFmt.format(new Date(o.when));
-        const n = document.createElement("div"); n.className = "name"; n.textContent = o.species;
+        const n = document.createElement("div"); n.className = "name";
+        const nb = document.createElement("button"); nb.type = "button"; nb.className = "sp-link"; nb.dataset.sp = o.species; nb.textContent = o.species; n.append(nb);
         const la = sci.get(o.species.toLowerCase());
         if (la){ const s = document.createElement("small"); s.textContent = la; n.append(s); }
         const right = document.createElement("div"); right.className = "right"; right.style.display = "flex"; right.style.gap = "6px"; right.style.alignItems = "center";
@@ -319,7 +372,7 @@ h2{font:600 1.15rem/1.2 var(--f-display);margin:0}
       const head = items[0].place ? `<span class="pm">${esc(items[0].place)}</span>` : "";
       const rows = items.slice(0, 8).map(o => {
         const la = sci.get(o.species.toLowerCase());
-        return `<div style="margin-top:8px"><b>${esc(o.species)}</b>${la ? ` <i>${esc(la)}</i>` : ""}<span class="pm">${o.count} yks. · ${dayFmt.format(new Date(o.when))} ${timeFmt.format(new Date(o.when))}</span>${o.notes ? esc(o.notes) : ""}</div>`;
+        return `<div style="margin-top:8px"><b><a href="#" class="sp-link" data-sp="${esc(o.species)}">${esc(o.species)}</a></b>${la ? ` <i>${esc(la)}</i>` : ""}<span class="pm">${o.count} yks. · ${dayFmt.format(new Date(o.when))} ${timeFmt.format(new Date(o.when))}</span>${o.notes ? esc(o.notes) : ""}</div>`;
       }).join("");
       const more = items.length > 8 ? `<span class="pm">+ ${items.length - 8} muuta</span>` : "";
       m.bindPopup(head + rows + more, { maxWidth: 260 });
@@ -347,18 +400,160 @@ h2{font:600 1.15rem/1.2 var(--f-display);margin:0}
     map.invalidateSize();
     renderMap();
   }
+  const VIEWS = { log: "", map: "#kartta", species: "#lajit" };
   function show(view){
-    const isMap = view === "map";
-    $("v-log").hidden = isMap; $("v-map").hidden = !isMap;
-    $("tab-log").setAttribute("aria-selected", String(!isMap)); $("tab-map").setAttribute("aria-selected", String(isMap));
-    try { history.replaceState(null, "", isMap ? "#kartta" : "#"); } catch(e){}
-    if (isMap) openMap();
+    for (const v of Object.keys(VIEWS)){
+      $("v-" + v).hidden = v !== view;
+      $("tab-" + v).setAttribute("aria-selected", String(v === view));
+    }
+    try { history.replaceState(null, "", VIEWS[view] || location.pathname); } catch(e){}
+    if (view === "map") openMap();
+    if (view === "species") renderSpecies();
   }
-  $("tab-log").onclick = () => show("log");
-  $("tab-map").onclick = () => show("map");
+  for (const v of Object.keys(VIEWS)) $("tab-" + v).onclick = () => show(v);
+
+  // Lajitiedot: suomenkielinen Wikipedia, kuvan varalla iNaturalist. Tulokset välimuistiin.
+  const INFO_KEY = "lintuinfo.v1";
+  let infoCache = {};
+  try { infoCache = JSON.parse(localStorage.getItem(INFO_KEY)) || {}; } catch(e){}
+  const pending = new Map();
+  async function getJSON(url){
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(r.status);
+    return r.json();
+  }
+  async function wiki(title){
+    try {
+      const j = await getJSON("https://fi.wikipedia.org/api/rest_v1/page/summary/" + encodeURIComponent(title.replace(/ /g, "_")) + "?redirect=true");
+      if (j.type !== "standard" || !j.extract) return null;
+      let img = j.thumbnail?.source || null;
+      if (img) img = img.replace(/\/(\d+)px-/, "/640px-");
+      return { title: j.title, text: j.extract, img, thumb: j.thumbnail?.source || null, wiki: j.content_urls?.mobile?.page || j.content_urls?.desktop?.page, credit: img ? "Kuva: Wikimedia Commons" : "" };
+    } catch(e){ return null; }
+  }
+  async function inat(q){
+    try {
+      const j = await getJSON("https://api.inaturalist.org/v1/taxa?rank=species&locale=fi&per_page=1&q=" + encodeURIComponent(q));
+      const t = j.results?.[0];
+      if (!t || t.iconic_taxon_name !== "Aves") return null;
+      const ph = t.default_photo;
+      return { img: ph?.medium_url || null, thumb: ph?.square_url || null, credit: ph?.attribution ? "Kuva: " + ph.attribution : "", inat: "https://www.inaturalist.org/taxa/" + t.id, la: t.name };
+    } catch(e){ return null; }
+  }
+  function info(name){
+    const key = name.toLowerCase();
+    const c = infoCache[key];
+    if (c && (c.img || Date.now() - c.at < 864e5)) return Promise.resolve(c);
+    if (pending.has(key)) return pending.get(key);
+    const pr = (async () => {
+      const la = sci.get(key);
+      let w = null;
+      for (const t of [la, name]) { if (t && (w = await wiki(t))) break; }
+      let n = null;
+      if (!w?.img) n = await inat(la || name);
+      if (!w && !n) return null;
+      const res = { at: Date.now(), text: w?.text || "", wiki: w?.wiki || null, img: w?.img || n?.img || null, thumb: w?.thumb || n?.thumb || null,
+        credit: w?.img ? w.credit : (n?.credit || ""), inat: n?.inat || null, la: la || n?.la || "" };
+      infoCache[key] = res;
+      try { localStorage.setItem(INFO_KEY, JSON.stringify(infoCache)); } catch(e){}
+      return res;
+    })().finally(() => pending.delete(key));
+    pending.set(key, pr);
+    return pr;
+  }
+
+  const dlg = $("sp");
+  async function openSpecies(name){
+    const canon = SPECIES.find(([fi]) => fi.toLowerCase() === name.toLowerCase());
+    name = canon ? canon[0] : name;
+    const key = name.toLowerCase();
+    $("sp-name").textContent = name;
+    $("sp-la").textContent = sci.get(key) || "";
+    const mine = obs.filter(o => o.species.toLowerCase() === key).sort((a, b) => a.when.localeCompare(b.when));
+    const stats = $("sp-stats");
+    if (mine.length){
+      const total = mine.reduce((s, o) => s + o.count, 0);
+      stats.innerHTML = `<span><b>${mine.length}</b>${mine.length === 1 ? "havainto" : "havaintoa"}</span><span><b>${total}</b>${total === 1 ? "yksilö" : "yksilöä"}</span><span><b>${dayFmt.format(new Date(mine[0].when))}</b>ensimmäinen</span>`;
+      stats.hidden = false;
+    } else { stats.hidden = true; }
+    $("sp-text").textContent = ""; $("sp-credit").textContent = "";
+    $("sp-wiki").hidden = true; $("sp-inat").hidden = true;
+    const img = $("sp-img"), ph = $("sp-ph");
+    img.hidden = true; img.removeAttribute("src"); ph.hidden = false; ph.textContent = "Haetaan tietoja…";
+    if (!dlg.open) dlg.showModal();
+    const r = await info(name);
+    if ($("sp-name").textContent !== name) return;
+    if (!r){ ph.textContent = "Tietoja ei löytynyt. Tarkista verkkoyhteys tai lajin nimi."; return; }
+    if (r.la && !$("sp-la").textContent) $("sp-la").textContent = r.la;
+    $("sp-text").textContent = r.text || "Wikipediasta ei löytynyt kuvausta tälle lajille.";
+    $("sp-credit").textContent = r.credit || "";
+    if (r.wiki){ $("sp-wiki").href = r.wiki; $("sp-wiki").hidden = false; }
+    if (r.inat){ $("sp-inat").href = r.inat; $("sp-inat").hidden = false; }
+    if (r.img){
+      img.onload = () => { img.hidden = false; ph.hidden = true; };
+      img.onerror = () => { ph.textContent = "Kuvaa ei saatu ladattua."; };
+      img.alt = name; img.src = r.img;
+    } else ph.textContent = "Lajista ei löytynyt kuvaa.";
+  }
+  $("sp-close").onclick = () => dlg.close();
+  dlg.addEventListener("click", e => { if (e.target === dlg) dlg.close(); });
+  document.addEventListener("click", e => {
+    const t = e.target.closest("[data-sp]");
+    if (!t) return;
+    e.preventDefault(); openSpecies(t.dataset.sp);
+  });
+
+  function spRow(name, la, countText){
+    const li = document.createElement("li");
+    const b = document.createElement("button"); b.type = "button"; b.dataset.sp = name;
+    const im = document.createElement("img"); im.className = "thumb"; im.alt = ""; im.loading = "lazy"; im.width = 56; im.height = 56;
+    const c = infoCache[name.toLowerCase()];
+    if (c?.thumb) im.src = c.thumb; else im.dataset.need = name;
+    const t = document.createElement("span"); t.className = "t";
+    const bb = document.createElement("b"); bb.textContent = name; t.append(bb);
+    if (la){ const i = document.createElement("i"); i.textContent = la; t.append(i); }
+    const cc = document.createElement("span"); cc.className = "c"; cc.textContent = countText || "";
+    b.append(im, t, cc); li.append(b);
+    return li;
+  }
+  let thumbObs = null;
+  function loadThumbs(root){
+    const imgs = root.querySelectorAll("img[data-need]");
+    const go = im => { const n = im.dataset.need; delete im.dataset.need; info(n).then(r => { if (r?.thumb) im.src = r.thumb; }); };
+    if (!("IntersectionObserver" in window)){ imgs.forEach(go); return; }
+    thumbObs?.disconnect();
+    thumbObs = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting){ thumbObs.unobserve(e.target); go(e.target); } }), { rootMargin: "200px" });
+    imgs.forEach(im => thumbObs.observe(im));
+  }
+  function renderSpecies(){
+    const q = norm($("sp-q").value);
+    const box = $("sp-results");
+    const seen = new Map();
+    for (const o of obs){ const k = o.species.toLowerCase(); const e = seen.get(k) || { name: o.species, n: 0, last: "" }; e.n++; if (o.when > e.last) e.last = o.when; seen.set(k, e); }
+    const match = (fi, la) => !q || fi.toLowerCase().includes(q) || (la || "").toLowerCase().includes(q);
+    const own = [...seen.values()].filter(e => match(e.name, sci.get(e.name.toLowerCase()))).sort((a, b) => a.name.localeCompare(b.name, "fi"));
+    const rest = SPECIES.filter(([fi, la]) => !seen.has(fi.toLowerCase()) && match(fi, la));
+    const parts = [];
+    const h1 = document.createElement("h3"); h1.className = "sub"; h1.textContent = `Omat lajit (${own.length})`; parts.push(h1);
+    if (own.length){
+      const ul = document.createElement("ul"); ul.className = "splist";
+      own.forEach(e => ul.append(spRow(e.name, sci.get(e.name.toLowerCase()), e.n === 1 ? "1 havainto" : e.n + " havaintoa")));
+      parts.push(ul);
+    } else {
+      const p = document.createElement("p"); p.className = "note"; p.textContent = q ? "Ei osumia omista lajeista." : "Lajit, jotka olet kirjannut, näkyvät tässä."; parts.push(p);
+    }
+    const h2 = document.createElement("h3"); h2.className = "sub"; h2.textContent = q ? `Muut lajit (${rest.length})` : "Kaikki lajit"; parts.push(h2);
+    const ul2 = document.createElement("ul"); ul2.className = "splist";
+    rest.slice(0, q ? 60 : 200).forEach(([fi, la]) => ul2.append(spRow(fi, la)));
+    parts.push(ul2);
+    box.replaceChildren(...parts);
+    loadThumbs(box);
+  }
+  $("sp-q").addEventListener("input", renderSpecies);
 
   resetWhen(); render(); locate();
   if (location.hash === "#kartta") show("map");
+  else if (location.hash === "#lajit") show("species");
   if ("serviceWorker" in navigator && location.protocol === "https:" && !/claude/.test(location.hostname)){
     navigator.serviceWorker.register("sw.js").catch(() => {});
   }
